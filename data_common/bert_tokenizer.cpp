@@ -4,7 +4,7 @@
 
 namespace lazydog {
 
-    std::set<wchar_t> BertTokenizer::chinese_chars={
+    std::set<wchar_t> BertTokenizer::chinese_punc_chars={
         8211, 8212, 8216, 8217, 8220, 8221, 
         8230, 12289, 12290, 12296, 12297, 12298, 
         12299, 12300, 12301, 12302, 12303, 12304, 
