@@ -332,7 +332,7 @@ namespace lazydog {
                     (58<=text_char && text_char<=64) ||
                     (91<=text_char && text_char<=97) ||
                     (123<=text_char && text_char<=126) ||
-                    (chinese_chars.find(text_char)!=chinese_chars.end());
+                    (chinese_punc_chars.find(text_char)!=chinese_punc_chars.end());
         return flag;
     }
     

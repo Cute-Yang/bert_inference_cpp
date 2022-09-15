@@ -19,7 +19,7 @@ namespace lazydog {
 
     class BertTokenizer {
         public:
-            static std::set<wchar_t> chinese_chars;
+            static std::set<wchar_t> chinese_punc_chars;
         private:
             std::string vocab_path;
             // some special tokens
