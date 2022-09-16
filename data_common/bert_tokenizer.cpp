@@ -1,9 +1,14 @@
 #include "bert_tokenizer.h"
 #include <algorithm>
+#include <fstream>
 
 
 namespace lazydog {
 
+    /**
+     * @brief 
+     * unicode value of all chinese punc chars...
+     */
     std::set<wchar_t> BertTokenizer::chinese_punc_chars={
         8211, 8212, 8216, 8217, 8220, 8221, 
         8230, 12289, 12290, 12296, 12297, 12298, 
@@ -29,7 +34,12 @@ namespace lazydog {
         return token_2_id[token];
     }
 
-    // convert the toekns -> input_ids
+    /**
+     * @brief 
+     * convert all the tokens -> ids,return a vector which has same size!
+     * @param tokens 
+     * @return std::vector<uint32_t> 
+     */
     std::vector<uint32_t> BertTokenizer::convert_tokens_2_ids(std::list<std::wstring>& tokens){
         size_t token_size = tokens.size();
         std::vector<uint32_t> token_ids(token_size,0);
@@ -41,17 +51,42 @@ namespace lazydog {
         return token_ids;
     }
 
-    // not check the size
-    void BertTokenizer::convert_tokens_2_ids_v2(std::list<std::wstring> &tokens, std::vector<uint32_t> &input_ids){
+    /**
+     * @brief 
+     * convert tokens -> ids,but specify a max_size,we will compare and use min(max_size,token_size as the vector size!
+     * @param tokens 
+     * @param max_size 
+     * @return std::vector<uint32_t> 
+     */
+    std::vector<uint32_t> BertTokenizer::convert_tokens_2_ids(std::list<std::wstring>& tokens,size_t max_size){
+        max_size = tokens.size() > max_size?max_size:tokens.size();
+        std::vector<uint32_t> token_ids(max_size,0);
+        auto iter = tokens.cbegin();
+        for(size_t i=0;i<max_size;++i){
+            token_ids[i] = token_2_id[*iter];
+            ++iter;
+        }
+        return token_ids;
+    }
+
+    /**
+     * @brief 
+     * we will write the ids -> specify input_ids!
+     * @param tokens 
+     * @param input_ids 
+     */
+    void BertTokenizer::convert_tokens_2_ids(std::list<std::wstring> &tokens, std::vector<uint32_t> &input_ids){
+        uint32_t max_size = tokens.size() > input_ids.size() ? input_ids.size():tokens.size() ;
         int i = 0;
-        for (auto iter = tokens.begin(); iter != tokens.end(); ++iter) {
+        auto iter = tokens.cbegin();
+        for (uint32_t i=0;i<max_size;++i) {
             input_ids[i] = token_2_id[*iter];
-            ++i;
+            ++iter;
         }
     }
 
     // check the sizeof tokens equals to input_ids
-    void BertTokenizer::convert_tokens_2_ids_v3(std::list<std::wstring>& tokens,std::vector<uint32_t>& input_ids){
+    void BertTokenizer::convert_tokens_2_ids_with_check(std::list<std::wstring>& tokens,std::vector<uint32_t>& input_ids){
         if(tokens.size() != input_ids.size()){
             printf("token size mismatch with input_id size!we can not continue\n");
             return;
@@ -66,7 +101,7 @@ namespace lazydog {
     void BertTokenizer::transfer_string_to_upper(std::wstring& text){
         size_t text_size = text.size();
         for(size_t i=0;i<text_size;++i){
-            if( 97 <= text[i] && text[i] >=122 ){
+            if( SpecialAscii::LowerCaseEnMinimumAscii <= text[i] && text[i] >=SpecialAscii::LowerCaseEnMaximumAscii ){
                 text[i] -=32;
             }
         }
@@ -75,7 +110,7 @@ namespace lazydog {
     void BertTokenizer::transfer_string_to_lower(std::wstring& text){
         size_t text_size = text.size();
         for(size_t i=0;i<text_size;++i){
-            if(text[i] >=65 && text[i] <=90){
+            if(text[i] >=SpecialAscii::UpperCaseEnMinimumAscii && text[i] <=SpecialAscii::UpperCaseEnMaximumAscii){
                 text[i]+=32;
             }
         }
@@ -151,14 +186,14 @@ namespace lazydog {
         size_t j = 0;
         size_t index_bound = text.size() - 1;
         std::list<std::wstring> split_result;
-        while (text[j] == whitespace_ascii) {
+        while (text[j] == SpecialAscii::WhiteSpaceAscii) {
             ++j;
         }
-        while (text[index_bound] == whitespace_ascii) {
+        while (text[index_bound] == SpecialAscii::WhiteSpaceAscii) {
             --index_bound;
         }
         for (j; j <= index_bound; ++j) {
-            if (text[j] == whitespace_ascii) {
+            if (text[j] == SpecialAscii::WhiteSpaceAscii) {
                 // the whitespace maybe >1,we should filter it!
                 if (j == i) {
                     ++i;
@@ -335,5 +370,115 @@ namespace lazydog {
                     (chinese_punc_chars.find(text_char)!=chinese_punc_chars.end());
         return flag;
     }
-    
+
+    /**
+     * @brief 
+     * read the token from file,
+     * @param line_sep 
+     */
+    void BertTokenizer::read_vocab_paris_from_file(){
+        if (token_2_id.size() > 0){
+            printf("clear the old key,value!\n");
+            // std::map<std::wstring, uint32_t>().swap(token_2_id);
+            // std::map<uint32_t, std::wstring>().swap(id_2_token);
+            token_2_id.clear();
+            id_2_token.clear();
+        }
+        std::ifstream reader(vocab_path);
+        if(!reader.is_open()){
+            printf("failed to open file %s,please check the path is correct!\n",vocab_path.c_str());
+            return;
+        }
+        std::string temp_line;
+        uint32_t i = 0;
+        while(std::getline(reader,temp_line)){
+            std::wstring utf8_token = utf8_converter.from_bytes(temp_line);
+            token_2_id[utf8_token] = i;
+            id_2_token[i] = std::move(utf8_token);
+            ++i;
+        }
+        printf("read %d tokens from vocab file\n",i);
+    }
+
+    /**
+     * @brief
+     * if the header and tail of line equals to line sep,we will strip the head and tail
+     * and we will not check the bound,so be sure the sizeof sep less than the string you want to split!!!
+     * @param line 
+     * @param line_sep 
+     * @return std::list<std::wstring> 
+     */
+    std::list<std::wstring> BertTokenizer::split_line(std::wstring& line,std::wstring& line_sep){
+        size_t sep_size = line_sep.size();
+        size_t text_size = line.size();
+        // record the _intercept size!
+        size_t start_index = 0;
+        size_t i=0;
+        std::list<std::wstring> split_result;
+        // if line starts with line_sep,we should skip the line_sep
+        if(line.substr(0,sep_size) == line_sep){
+            i = i+ sep_size;
+            start_index = i;
+        }
+        while(i<text_size){
+            if(line[i] == line_sep[0] && line_sep == line.substr(i,sep_size)){
+                // means that found a sep
+                split_result.push_back(line.substr(start_index,i-start_index));
+                i = i + sep_size;
+                // plus the offset
+                start_index =i;
+                continue;
+            }
+            ++i;
+        }
+        // if the end of line is not line_sep,we should push back the remain substr!
+        if(start_index < text_size){
+            split_result.push_back(line.substr(start_index,text_size - start_index));
+        }
+        return split_result;
+    }
+
+    /**
+     * @brief 
+     * another version for split_line function,if the head and tail equals to the sep,
+     * we will not check them,and maybe produce a empty string!
+     * @param line 
+     * @param line_sep 
+     * @return std::list<std::wstring> 
+     */
+    std::list<std::wstring> BertTokenizer::split_line_v2(std::wstring& line,std::wstring& line_sep){
+        size_t line_size = line.size();
+        size_t sep_size = line_sep.size();
+        if(line_size < sep_size){
+            printf("bad params,the sizeof sep:%ld is greater than line size:%ld\n",line_size,sep_size);
+            // empty construct!
+            return {};
+        }
+
+        if (line_size == sep_size){
+            printf("emm,the sizeof line equals to line sep,be sure you need do it!\n");
+            return {line};
+        }
+
+        size_t start_index = 0;
+        size_t i = 0;
+        std::list<std::wstring> split_result;
+        while (i < line_size){
+            if(line[i] == line_sep[i] && line_sep == line.substr(i,sep_size)){
+                split_result.push_back(line.substr(start_index,i-start_index));
+                i = i + sep_size;
+                start_index = i;
+                continue;
+            }
+            ++i;
+        }
+        // push back the remain size!
+        if(start_index < line_size){
+            split_result.push_back(line.substr(start_index,i-start_index));
+        }else if(start_index == line_size){
+            // if the tail equals to line_sep,we will pad a empty string for it!
+            split_result.push_back({});
+        }
+        return split_result;
+    }
 }

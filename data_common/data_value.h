@@ -1,3 +1,8 @@
-#include <stdint.h>
 
-constexpr uint8_t whitespace_ascii = 32;
+enum SpecialAscii {
+    WhiteSpaceAscii = 32,
+    LowerCaseEnMinimumAscii = 97,
+    LowerCaseEnMaximumAscii = 122,
+    UpperCaseEnMinimumAscii = 65,
+    UpperCaseEnMaximumAscii = 90 
+};

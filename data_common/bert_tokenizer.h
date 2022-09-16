@@ -9,6 +9,8 @@
 #include <regex>
 #include <list>
 #include <stdint.h>
+#include <locale>
+#include <codecvt>
 
 
 namespace lazydog {
@@ -20,6 +22,7 @@ namespace lazydog {
     class BertTokenizer {
         public:
             static std::set<wchar_t> chinese_punc_chars;
+            static std::wstring_convert<std::codecvt_utf8<wchar_t>> utf8_converter;
         private:
             std::string vocab_path;
             // some special tokens
@@ -48,9 +51,11 @@ namespace lazydog {
 
             std::vector<uint32_t> convert_tokens_2_ids(std::list<std::wstring> &tokens);
 
-            void convert_tokens_2_ids_v2(std::list<std::wstring> &tokens, std::vector<uint32_t> &input_ids);
+            void convert_tokens_2_ids(std::list<std::wstring> &tokens, std::vector<uint32_t> &input_ids);
 
-            void convert_tokens_2_ids_v3(std::list<std::wstring>& tokens,std::vector<uint32_t>& input_ids);
+            std::vector<uint32_t> convert_tokens_2_ids(std::list<std::wstring> &tokens,size_t max_size);
+
+            void convert_tokens_2_ids_with_check(std::list<std::wstring>& tokens,std::vector<uint32_t>& input_ids);
             
             void insert_one_token_2_ordered_vector(std::wstring& token);
             
@@ -92,6 +97,9 @@ namespace lazydog {
 
             std::wstring join_substrs(std::list<std::wstring> substrs);
 
+            std::list<std::wstring> split_line(std::wstring& line,std::wstring& line_sep);
+            
+            std::list<std::wstring> split_line_v2(std::wstring& line,std::wstring& line_sep);
         };
 } // namespace lazydog
 
