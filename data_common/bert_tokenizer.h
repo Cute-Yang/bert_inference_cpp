@@ -3,7 +3,7 @@
 #include <string>
 #include "data_value.h"
 #include <set>
-#include <map>
+#include <unordered_map>
 #include <vector>
 #include <cstdio>
 #include <regex>
@@ -22,22 +22,23 @@ namespace lazydog {
     class BertTokenizer {
         public:
             static std::set<wchar_t> chinese_punc_chars;
-            static std::wstring_convert<std::codecvt_utf8<wchar_t>> utf8_converter;
+            std::wstring_convert<std::codecvt_utf8<wchar_t>> utf8_converter;
         private:
+            // std::wstring_convert<std::codecvt_utf8<wchar_t>> utf8_converter;
             std::string vocab_path;
             // some special tokens
-            std::wstring sep_token=L"[SEP]";
-            std::wstring mask_token=L"[MASK]";
-            std::wstring pad_token=L"[PAD]";
-            std::wstring cls_token=L"[CLS]";
+            std::wstring sep_token = L"[SEP]";
+            std::wstring mask_token = L"[MASK]";
+            std::wstring pad_token = L"[PAD]";
+            std::wstring cls_token = L"[CLS]";
             std::wstring unk_token = L"[UNK]";
             // the max size of chars for a english word,if greater than this,regard as not word
             uint32_t max_input_chars_per_word=28;
             // a map to restore the vocab,consider to use unordered_map
-            std::map<std::wstring, uint32_t> token_2_id{};
-            std::map<uint32_t,std::wstring> id_2_token{};
-            std::map<std::wstring,uint32_t> added_token_2_id{};
-            std::map<uint32_t,std::wstring> added_id_2_token{};
+            std::unordered_map<std::wstring, uint32_t> token_2_id{};
+            std::unordered_map<uint32_t,std::wstring> id_2_token{};
+            std::unordered_map<std::wstring,uint32_t> added_token_2_id{};
+            std::unordered_map<uint32_t,std::wstring> added_id_2_token{};
             std::wregex pattern;
         public:
             BertTokenizer();
@@ -59,7 +60,7 @@ namespace lazydog {
             
             void insert_one_token_2_ordered_vector(std::wstring& token);
             
-            void add_custom_tokens(std::list<std::wstring>& add_tokens,bool is_special=true);
+            void add_custom_tokens(std::list<std::wstring>& add_tokens,bool is_special);
 
             std::list<std::wstring> _tokenize(std::wstring& text);
 
@@ -85,7 +86,7 @@ namespace lazydog {
             
             std::list<std::wstring> wordpiece_tokenize(std::list<std::wstring>& text_tokens);
 
-            void reset_vocab_path(std::string new_vocab_path,bool reset_vocab=true);
+            void reset_vocab_path(std::string new_vocab_path,bool reset_vocab);
 
             void reset_max_input_chars_per_word(uint32_t new_max_input_chars_per_word);
 
@@ -99,7 +100,12 @@ namespace lazydog {
 
             std::list<std::wstring> split_line(std::wstring& line,std::wstring& line_sep);
             
+            void print_list_string(std::list<std::wstring>& text_list);
             std::list<std::wstring> split_line_v2(std::wstring& line,std::wstring& line_sep);
+
+            void set_pattern(std::wstring& pattern_){
+                pattern = pattern_;
+            }
         };
 } // namespace lazydog
 
