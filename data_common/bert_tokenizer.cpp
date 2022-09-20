@@ -17,7 +17,8 @@ namespace lazydog {
         12305, 12308, 12309, 65281, 65288, 65289, 
         65292, 65294, 65306, 65307, 65311
     };
-
+    
+    std::wstring_convert<std::codecvt_utf8<wchar_t>> BertTokenizer::utf8_converter;
     BertTokenizer::BertTokenizer(){
         vocab_path="vocab.txt";
     };
@@ -31,14 +32,17 @@ namespace lazydog {
 
     BertTokenizer::BertTokenizer(std::string vocab_path_):vocab_path(vocab_path_){};
 
-    BertTokenizer::BertTokenizer(std::string vocab_path_, uint32_t max_input_chars_per_word_):
-        vocab_path(vocab_path_),max_input_chars_per_word(max_input_chars_per_word_){};
+    BertTokenizer::BertTokenizer(std::string vocab_path_, uint32_t max_input_chars_per_word_,uint32_t max_seq_size_):
+        vocab_path(vocab_path_),max_input_chars_per_word(max_input_chars_per_word_),max_seq_size(max_seq_size_){
+            _last_size = max_seq_size -1;
+            _intercept_size = max_seq_size -2;
+        };
 
     BertTokenizer::BertTokenizer(std::string vocab_path_, std::wstring sep_token_,
                                  std::wstring mask_token_, std::wstring pad_token_, std::wstring cls_token_,
-                                 uint32_t max_input_chars_per_word_):
+                                 uint32_t max_input_chars_per_word_,uint32_t max_seq_size_):
         vocab_path(vocab_path_),sep_token(sep_token_),mask_token(mask_token_),pad_token(pad_token_),
-        cls_token(cls_token_),max_input_chars_per_word(max_input_chars_per_word_){};
+        cls_token(cls_token_),max_input_chars_per_word(max_input_chars_per_word_),max_seq_size(max_seq_size_){};
 
     uint32_t BertTokenizer::convert_token_2_id(std::wstring& token){
         return token_2_id[token];
@@ -50,6 +54,8 @@ namespace lazydog {
      * @param tokens 
      * @return std::vector<uint32_t> 
      */
+    
+
     std::vector<uint32_t> BertTokenizer::convert_tokens_2_ids(std::list<std::wstring>& tokens){
         // printf("fuck!\n");
         size_t token_size = tokens.size();
@@ -79,19 +85,42 @@ namespace lazydog {
         return token_ids;
     }
 
-    /**
-     * @brief 
-     * we will write the ids -> specify input_ids!
-     * @param tokens 
-     * @param input_ids 
-     */
-    void BertTokenizer::convert_tokens_2_ids(std::list<std::wstring> &tokens, std::vector<uint32_t> &input_ids){
-        uint32_t max_size = tokens.size() > input_ids.size() ? input_ids.size():tokens.size() ;
-        int i = 0;
-        auto iter = tokens.cbegin();
-        for (uint32_t i=0;i<max_size;++i) {
+    // return the max seq size of current tokenizer
+    uint32_t BertTokenizer::get_max_seq_size() const {
+        return max_seq_size;
+    }
+    
+    // here we resume size of two params == max_seq_size
+    void BertTokenizer::produce_input_ids_and_attention_mask(std::list<std::wstring> &text_tokens, std::vector<uint32_t> &input_ids, std::vector<uint32_t> &attention_mask) {
+        std::copy(input_ids_placeholder.begin(),input_ids_placeholder.end(),input_ids.begin());
+        std::copy(attention_mask_placeholder.begin(),attention_mask_placeholder.end(),attention_mask.begin());
+        decltype(_intercept_size) token_size = text_tokens.size();
+        std::list<std::wstring>::const_iterator iter = text_tokens.begin();
+        uint32_t i =1;
+        auto loop_size = std::min(token_size,_intercept_size);
+        for (; i <=loop_size; ++i) {
             input_ids[i] = token_2_id[*iter];
             ++iter;
+        }
+        input_ids[i++] = token_2_id[sep_token];
+        for(;i<max_seq_size;++i){
+            attention_mask[i] = 0;
+        }
+    }
+
+    /**
+     * @brief
+     * we will write the ids -> specify input_ids!
+     * @param tokens
+     * @param input_ids
+     */
+    void BertTokenizer::convert_tokens_2_ids(std::list<std::wstring> &tokens, std::vector<uint32_t> &input_ids) {
+    uint32_t max_size = tokens.size() > input_ids.size() ? input_ids.size():tokens.size() ;
+    int i = 0;
+    auto iter = tokens.cbegin();
+    for (uint32_t i=0;i<max_size;++i) {
+        input_ids[i] = token_2_id[*iter];
+        ++iter;
         }
     }
 
@@ -173,7 +202,7 @@ namespace lazydog {
         size_t start_index;
         for(auto iter=basic_text_tokens.begin();iter!=basic_text_tokens.end();++iter){
             if(iter->size() == 1){
-                split_result.push_back(std::move((*iter)));
+                split_result.emplace_back(std::move((*iter)));
                 continue;
             }
             // must be reset -> 0 for each loop!
@@ -181,22 +210,22 @@ namespace lazydog {
             for(size_t i=0;i<iter->size();++i){
                 if(_is_punctuation_char((*iter)[i])){
                     if(i>start_index){
-                        split_result.push_back(iter->substr(start_index, i - start_index));
+                        split_result.emplace_back(iter->substr(start_index, i - start_index));
                     }
-                    split_result.push_back(iter->substr(i,1));
+                    split_result.emplace_back(iter->substr(i,1));
                     start_index = i+1;
                 }
             }
             if(start_index < iter->size()){
                 // just compute the offset!
-                split_result.push_back(iter->substr(start_index,iter->size() - start_index));
+                split_result.emplace_back(iter->substr(start_index,iter->size() - start_index));
             }
         }
         return split_result;
     }
 
     std::list<std::wstring> BertTokenizer::_whitespace_tokenize(std::wstring &text) {
-        std::cout << "current string : " << utf8_converter.to_bytes(text) << std::endl;
+        // std::cout << "current string : " << utf8_converter.to_bytes(text) << std::endl;
         size_t i = 0;
         size_t j = 0;
         size_t index_bound = text.size() - 1;
@@ -216,15 +245,13 @@ namespace lazydog {
                     ++i;
                     continue;
                 }
-                std::cout << "i: " << i << " j: " << j << std::endl;
-                split_result.push_back(text.substr(i, (j - i)));
+                split_result.emplace_back(text.substr(i, (j - i)));
                 i = j + 1;
             }
         }
-        if(j<i){
-            split_result.push_back(text.substr(i, (j - i)));
+        if(i<j){
+            split_result.emplace_back(text.substr(i, (j - i)));
         }
-        print_list_string(split_result);
         return split_result;
     }
 
@@ -237,13 +264,13 @@ namespace lazydog {
         while(std::regex_search(head,tail,search_result,pattern)){
             auto left = search_result[0].first;
             auto right = search_result[0].second;
-            split_result.push_back({text.substr(_intercep_start,left-head),false});
-            split_result.push_back({std::move(search_result[0].str()),true});
+            split_result.emplace_back(text.substr(_intercep_start,left-head),false);
+            split_result.emplace_back(std::move(search_result[0].str()),true);
             head = right;
             _intercep_start = right - text.cbegin();
         }
         if(head!=text.cend()){
-            split_result.push_back({text.substr(_intercep_start,tail-head),false});
+            split_result.emplace_back(text.substr(_intercep_start,tail-head),false);
         }
         return split_result;
     }
@@ -276,16 +303,16 @@ namespace lazydog {
 
     std::list<std::wstring> BertTokenizer::wordpiece_tokenize(std::list<std::wstring> &text_tokens) {
         std::list<std::wstring> output_tokens;
-        std::cout << "**********wordpiece*************" << std::endl;
+        // std::cout << "**********wordpiece*************" << std::endl;
         for(auto iter=text_tokens.begin();iter!=text_tokens.end();++iter){
             auto token_size = iter->size();
             if(token_size == 1){
                 // just move,to avoid memory allocate / free
-                output_tokens.push_back(std::move(*iter));
+                output_tokens.emplace_back(std::move(*iter));
                 continue;
             }
             if(token_size > max_input_chars_per_word){
-                output_tokens.push_back(unk_token);
+                output_tokens.emplace_back(unk_token);
                 continue;
             }
             bool is_bad = false;
@@ -311,11 +338,11 @@ namespace lazydog {
                     is_bad = true;
                     break;
                 }
-                sub_tokens.push_back(std::move(current_substr));
+                sub_tokens.emplace_back(std::move(current_substr));
                 start = end;
             }
             if(is_bad){
-                output_tokens.push_back(unk_token);
+                output_tokens.emplace_back(unk_token);
             }else{
                 // after this,the ele of sub_tokens will be set -> nullptr!
                 output_tokens.splice(output_tokens.end(),sub_tokens);
@@ -323,12 +350,68 @@ namespace lazydog {
         }
         return output_tokens;
     }
+    
+    /**
+     * @brief 
+     * this function has bug...
+     * @param text 
+     * @return std::list<std::wstring> 
+     */
+    std::list<std::wstring> BertTokenizer::_tokenizer_v2(std::wstring& text){
+        size_t text_size = text.size();
+        size_t chinese_char_size = 0;
+        size_t en_char_size = 0;
+        std::vector<uint8_t> chinse_char_flags(text_size,0);
+        for(size_t i =0;i<text_size;++i){
+            if(_is_chinese_char(text_size)){
+                ++chinese_char_size;
+                chinse_char_flags[i] = 1;
+            }
+        }
+        std::list<std::wstring> tokens;
+        // means that all data is chinese
+        if (chinese_char_size == text_size){
+            for(size_t i=0;i<text_size;++i){
+                tokens.emplace_back(text.substr(i,1));
+                return tokens;
+            }
+        }
+        size_t start_index = 0;
+        for(size_t i=0;i<text_size;++i){
+            if(chinse_char_flags[i]){
+                tokens.emplace_back(text.substr(i,1));
+                ++start_index;
+                continue;
+            }
+            // the whitespace is between chinses char...
+            if(text[i] == SpecialAscii::WhiteSpaceAscii && start_index == i){
+                ++start_index;
+                continue;
+            }
+            // emplace back the substr
+            tokens.emplace_back(text.substr(start_index,i-start_index));
+            start_index = i+1;
+        }
+        // append the last value...
+        if(start_index < text_size){
+            tokens.emplace_back(text.substr(start_index,text_size-start_index));
+        }
 
+        std::list<std::wstring> puncated_text_tokens = _run_split_on_punc(tokens);
+        std::list<std::wstring> wordpiece_text_tokens = wordpiece_tokenize(puncated_text_tokens);
+        return wordpiece_text_tokens;
+    }
+
+    bool BertTokenizer::_is_en_char(wchar_t text_char){
+        return (text_char >= SpecialAscii::LowerCaseEnMinimumAscii && text_char <= SpecialAscii::LowerCaseEnMaximumAscii) ||
+                (text_char >= SpecialAscii::UpperCaseEnMinimumAscii && text_char <= SpecialAscii::UpperCaseEnMaximumAscii);
+    }
+    
     std::list<std::wstring> BertTokenizer::_tokenize(std::wstring& text){
         size_t text_size = text.size();
         std::vector<uint8_t> text_unicode_flag_list(text_size,1);
-        uint32_t whitespace_size = 0;
-        for(uint32_t i=0;i<text_size;++i){
+        size_t whitespace_size = 0;
+        for(size_t i=0;i<text_size;++i){
             if (!_is_chinese_char(text[i])){
                 text_unicode_flag_list[i] = 0;
                 continue;
@@ -338,25 +421,19 @@ namespace lazydog {
         // bool text_ord_flag = std::all_of(text.begin(),text.end(),_is_chinese_char);
         // means that all of char is chinese char,only need to return each substr!
         std::list<std::wstring> tokens;
-        std::cout << "whitespace_size: " << whitespace_size << "   text_size: " << text_size << std::endl;
+        // std::cout << "whitespace_size: " << whitespace_size << "   text_size: " << text_size << std::endl;
         if(whitespace_size == 2*text_size){
             for(size_t i=0;i<text_size;++i){
-                tokens.push_back(text.substr(i,1));
+                tokens.emplace_back(text.substr(i,1));
             }
             return tokens;
         }
         
         std::wstring first_padding_string(text_size + whitespace_size,0);
-        size_t start_index = 0;
+        size_t start_index = 0; 
         // pad whitespace string if chinese char!,and compute the size of padding whitespace
-        // judge for the first token...
-        if(text_unicode_flag_list[0]){
-            first_padding_string[start_index++] = text[0];
-            first_padding_string[start_index++] = SpecialAscii::WhiteSpaceAscii;
-        }else{
-            first_padding_string[start_index++] = text[0];
-        }
-        for(size_t i=1;i<text_size-1;++i){
+        // std::cout << utf8_converter.to_bytes(text) << std::endl;
+        for(size_t i=0;i<text_size;++i){
             if(text_unicode_flag_list[i]){
                 first_padding_string[start_index++] = SpecialAscii::WhiteSpaceAscii;
                 first_padding_string[start_index++] = text[i];
@@ -365,17 +442,9 @@ namespace lazydog {
                 first_padding_string[start_index++] = text[i];
             }
         }
-
-        for(size_t i=0;i<text_size;)
         std::list<std::wstring> basic_text_tokens = _whitespace_tokenize(first_padding_string);
-        std::cout << "basci_text_tokens" << std::endl;
-        print_list_string(basic_text_tokens);
         std::list<std::wstring> puncated_text_tokens = _run_split_on_punc(basic_text_tokens);
-        std::cout << "puncated_text_tokens" << std::endl;
-        print_list_string(puncated_text_tokens);
         std::list<std::wstring> wordpiece_text_tokens = wordpiece_tokenize(puncated_text_tokens);
-        std::cout << "wordpiece_text_tokens" << std::endl;
-        print_list_string(wordpiece_text_tokens);
         return wordpiece_text_tokens;
     }
 
@@ -384,10 +453,10 @@ namespace lazydog {
         std::list<std::pair<std::wstring,bool>> split_subtext = _split_text_with_regexp_search(text);
         for(auto iter=split_subtext.begin();iter!=split_subtext.end();++iter){
             if(iter->second){
-                std::cout << "special token " << utf8_converter.to_bytes(iter->first) << std::endl;
-                final_output_token.push_back(std::move(iter->first));
+                // std::cout << "special token " << utf8_converter.to_bytes(iter->first) << std::endl;
+                final_output_token.emplace_back(std::move(iter->first));
             }else{
-                std::cout << "sub string " << utf8_converter.to_bytes(iter->first) << std::endl;
+                // std::cout << "sub string " << utf8_converter.to_bytes(iter->first) << std::endl;
                 std::list<std::wstring> sub_tokens = _tokenize(iter->first);
                 final_output_token.splice(final_output_token.end(),sub_tokens);
             }
@@ -434,6 +503,9 @@ namespace lazydog {
             ++i;
         }
         printf("read %d tokens from vocab file\n",i);
+        input_ids_placeholder.assign(max_seq_size,0);
+        input_ids_placeholder[0] = token_2_id[cls_token];
+        attention_mask_placeholder.assign(max_seq_size,1);
     }
 
     /**
@@ -459,7 +531,7 @@ namespace lazydog {
         while(i<text_size){
             if(line[i] == line_sep[0] && line_sep == line.substr(i,sep_size)){
                 // means that found a sep
-                split_result.push_back(line.substr(start_index,i-start_index));
+                split_result.emplace_back(line.substr(start_index,i-start_index));
                 i = i + sep_size;
                 // plus the offset
                 start_index =i;
@@ -469,7 +541,7 @@ namespace lazydog {
         }
         // if the end of line is not line_sep,we should push back the remain substr!
         if(start_index < text_size){
-            split_result.push_back(line.substr(start_index,text_size - start_index));
+            split_result.emplace_back(line.substr(start_index,text_size - start_index));
         }
         return split_result;
     }
@@ -501,7 +573,7 @@ namespace lazydog {
         std::list<std::wstring> split_result;
         while (i < line_size){
             if(line[i] == line_sep[i] && line_sep == line.substr(i,sep_size)){
-                split_result.push_back(line.substr(start_index,i-start_index));
+                split_result.emplace_back(line.substr(start_index,i-start_index));
                 i = i + sep_size;
                 start_index = i;
                 continue;
@@ -510,10 +582,10 @@ namespace lazydog {
         }
         // push back the remain size!
         if(start_index < line_size){
-            split_result.push_back(line.substr(start_index,i-start_index));
+            split_result.emplace_back(line.substr(start_index,i-start_index));
         }else if(start_index == line_size){
             // if the tail equals to line_sep,we will pad a empty string for it!
-            split_result.push_back({});
+            split_result.emplace_back();
         }
         return split_result;
     }

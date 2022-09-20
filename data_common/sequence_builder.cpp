@@ -74,7 +74,7 @@ namespace lazydog {
             input_ids[n+1] = bert_sep_id;
             attention_mask.assign(n+1,1);
         }
-        return {input_ids,attention_mask}
+        // return {input_ids,attention_mask};
     }
 
     /**

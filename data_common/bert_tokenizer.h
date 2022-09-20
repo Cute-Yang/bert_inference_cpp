@@ -22,7 +22,7 @@ namespace lazydog {
     class BertTokenizer {
         public:
             static std::set<wchar_t> chinese_punc_chars;
-            std::wstring_convert<std::codecvt_utf8<wchar_t>> utf8_converter;
+            static std::wstring_convert<std::codecvt_utf8<wchar_t>> utf8_converter;
         private:
             // std::wstring_convert<std::codecvt_utf8<wchar_t>> utf8_converter;
             std::string vocab_path;
@@ -40,13 +40,18 @@ namespace lazydog {
             std::unordered_map<std::wstring,uint32_t> added_token_2_id{};
             std::unordered_map<uint32_t,std::wstring> added_id_2_token{};
             std::wregex pattern;
+            uint32_t max_seq_size = 32;
+            uint32_t _last_size = 32 -1;
+            uint32_t _intercept_size = 32 -2;
+            std::vector<uint32_t> input_ids_placeholder;
+            std::vector<uint32_t> attention_mask_placeholder;
         public:
             BertTokenizer();
             BertTokenizer(std::string vocab_path_);
-            BertTokenizer(std::string vocab_path_, uint32_t max_input_chars_per_word_);
+            BertTokenizer(std::string vocab_path_, uint32_t max_input_chars_per_word_,uint32_t max_seq_size_);
             BertTokenizer(std::string vocab_path_, std::wstring sep_token_,
                         std::wstring mask_token_, std::wstring pad_token_, std::wstring cls_token_,
-                        uint32_t max_input_chars_per_word_);
+                        uint32_t max_input_chars_per_word_,uint32_t max_seq_size_);
 
             uint32_t convert_token_2_id(std::wstring& token);
 
@@ -63,18 +68,19 @@ namespace lazydog {
             void add_custom_tokens(std::list<std::wstring>& add_tokens,bool is_special);
 
             std::list<std::wstring> _tokenize(std::wstring& text);
+            std::list<std::wstring> _tokenizer_v2(std::wstring& text);
 
             std::list<std::wstring> tokenize(std::wstring& text);
 
             std::list<std::wstring> tokenize_without_never_split(std::wstring& text);
 
-            bool _is_chinese_char(wchar_t single_char);
+            inline bool _is_chinese_char(wchar_t single_char);
 
             std::wstring _run_strip_accents(std::wstring& text);
 
             std::list<std::wstring> _run_split_on_punc(std::list<std::wstring>& basic_text_tokens);
 
-            bool _is_punctuation_char(wchar_t text_char);
+            inline bool _is_punctuation_char(wchar_t text_char);
 
             std::list<std::wstring> _whitespace_tokenize(std::wstring& text);
 
@@ -90,11 +96,11 @@ namespace lazydog {
 
             void reset_max_input_chars_per_word(uint32_t new_max_input_chars_per_word);
 
-            size_t get_vocab_size() const;
+            inline size_t get_vocab_size() const;
 
-            void transfer_string_to_lower(std::wstring& text);
+            inline void transfer_string_to_lower(std::wstring& text);
 
-            void transfer_string_to_upper(std::wstring& text);
+            inline void transfer_string_to_upper(std::wstring& text);
 
             std::wstring join_substrs(std::list<std::wstring> substrs);
 
@@ -102,10 +108,17 @@ namespace lazydog {
             
             void print_list_string(std::list<std::wstring>& text_list);
             std::list<std::wstring> split_line_v2(std::wstring& line,std::wstring& line_sep);
-
-            void set_pattern(std::wstring& pattern_){
+            
+            bool _is_en_char(wchar_t text_char);
+            
+            void set_pattern_with_string(std::wstring& pattern_){
                 pattern = pattern_;
             }
+
+            void set_pattern_with_file(std::string& pattern_file);
+
+            void produce_input_ids_and_attention_mask(std::list<std::wstring>& text_tokens,std::vector<uint32_t>& input_ids,std::vector<uint32_t>& attention_mask);
+            uint32_t get_max_seq_size() const;
         };
 } // namespace lazydog
 

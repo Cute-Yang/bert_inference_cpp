@@ -54,6 +54,7 @@
         "iostream": "cpp",
         "istream": "cpp",
         "sstream": "cpp",
-        "fstream": "cpp"
+        "fstream": "cpp",
+        "locale": "cpp"
     }
 }
