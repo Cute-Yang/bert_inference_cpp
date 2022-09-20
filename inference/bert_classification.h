@@ -14,12 +14,14 @@ namespace lazydog {
         private:
             uint32_t num_classes;
             uint32_t max_seq_size;
-            std::vector<void*> host_buffers;
-            std::vector<void*> device_buffers;
+        
+        public:
+            std::vector<void *> host_buffers;
+            std::vector<void *> device_buffers;
             std::vector<input_id_type> input_ids;
             std::vector<attention_mask_type> attention_mask;
             std::vector<prob_type> probs;
-        
+
         public:
             MemoryBlock(uint32_t num_classes_,uint32_t max_seq_size_);
             
@@ -30,6 +32,8 @@ namespace lazydog {
             void** get_device_buffer_ptr() noexcept;
 
             void** get_host_buffer_ptr() noexcept;
+            
+            
             
     };
 
