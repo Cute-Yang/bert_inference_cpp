@@ -118,7 +118,7 @@ namespace lazydog {
             BertClassifier(uint32_t max_cuda_stream_size_,uint32_t max_context_size_,
                            uint32_t max_memory_block_size_,std::string plan_file_);
             
-             BertClassifier(uint32_t max_cuda_stream_size_,uint32_t max_context_size_,
+            BertClassifier(uint32_t max_cuda_stream_size_,uint32_t max_context_size_,
                            uint32_t max_memory_block_size_,std::string plan_file_,
                            uint32_t batch_size_);
             
