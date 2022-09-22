@@ -238,7 +238,7 @@ namespace lazydog {
             --index_bound;
         }
         ++j;
-        for (j;j<=index_bound-1;++j) {
+        for (j;j<index_bound;++j) {
             if (text[j] == SpecialAscii::WhiteSpaceAscii) {
                 // the whitespace maybe >1,we should filter it!
                 if (j == i) {
@@ -249,8 +249,8 @@ namespace lazydog {
                 i = j + 1;
             }
         }
-        if(i<j){
-            split_result.emplace_back(text.substr(i, (j - i)));
+        if(i <= index_bound){
+            split_result.emplace_back(text.substr(i, (index_bound + 1 - i)));
         }
         return split_result;
     }

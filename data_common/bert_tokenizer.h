@@ -53,7 +53,7 @@ namespace lazydog {
                         std::wstring mask_token_, std::wstring pad_token_, std::wstring cls_token_,
                         uint32_t max_input_chars_per_word_,uint32_t max_seq_size_);
             BertTokenizer(BertTokenizer& ref);
-            BertTokenizer(BertClassifier&& ref);
+            BertTokenizer(BertTokenizer&& ref);
 
             uint32_t convert_token_2_id(std::wstring& token);
 
