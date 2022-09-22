@@ -249,9 +249,8 @@ namespace lazydog {
                 i = j + 1;
             }
         }
-        if(i <= index_bound){
-            split_result.emplace_back(text.substr(i, (index_bound + 1 - i)));
-        }
+
+        split_result.emplace_back(text.substr(i, (index_bound + 1 - i)));
         return split_result;
     }
 
