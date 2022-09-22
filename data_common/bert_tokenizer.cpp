@@ -1,4 +1,4 @@
-#include "bert_tokenizer.h"
+#include "data_common/bert_tokenizer.h"
 #include <algorithm>
 #include <fstream>
 #include <iostream>

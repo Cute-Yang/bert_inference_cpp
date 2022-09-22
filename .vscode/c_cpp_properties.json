@@ -4,8 +4,8 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "/home/lazydog/cpp_build/TensorRT-8.2.1.8/include",
-                "/home/lazydog/cpp_build/cuda/include"
+                "/home/lazydog/Seattle/tensorrt/include",
+                "/home/lazydog/Seattle/cuda/include"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",
