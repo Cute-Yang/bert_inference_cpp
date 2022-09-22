@@ -76,7 +76,7 @@ namespace lazydog {
             
             bool init_memory();
             
-            // void free_cuda_memory() noexcept;
+            void free_cuda_memory();
 
             void*const* get_device_buffer_ptr() const;
 
@@ -151,11 +151,13 @@ namespace lazydog {
             
             const std::vector<prob_type>& predict(std::wstring text,uint32_t indices);
 
-            void free_cuda_stream(uint32_t beg,uint32_t end);
+            void free_cuda_streams(uint32_t beg,uint32_t end);
 
-            void free_cuda_stream();
+            void free_cuda_streams();
 
             inline void compute_data_bytes();
+
+            void explicitly_free_memory_blocks(uint32_t beg,uint32_t end);
     };
 }
 

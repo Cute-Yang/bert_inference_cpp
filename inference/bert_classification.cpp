@@ -6,6 +6,19 @@ namespace lazydog{
     MemoryBlock::MemoryBlock(uint32_t num_classes_,uint32_t max_seq_size_):
         num_classes(num_classes_),max_seq_size(max_seq_size_){};
     
+    MemoryBlock::~MemoryBlock(){
+        free_cuda_memory();
+    }
+
+    void MemoryBlock::free_cuda_memory(){
+        printf("free the device memory allocated!\n");
+        for(size_t i=0;i<device_buffers.size();++i){
+            if(device_buffers[i]!=nullptr){
+                cudaFree(device_buffers[i]);
+            }
+        }
+    }
+    
     bool MemoryBlock::init_memory() {
         if (init_flag){
             printf("already initialized,do not invoke this function!\n");
@@ -56,14 +69,6 @@ namespace lazydog{
         return device_buffers.data();
     }
 
-    MemoryBlock::~MemoryBlock(){
-        printf("free the device memory allocated!\n");
-        for(size_t i=0;i<device_buffers.size();++i){
-            if(device_buffers[i]!=nullptr){
-                cudaFree(device_buffers[i]);
-            }
-        }
-    }
 
     BertClassifier::BertClassifier(std::string plan_file_):plan_file(plan_file_){
         compute_data_bytes();
@@ -93,7 +98,7 @@ namespace lazydog{
 
     BertClassifier::~BertClassifier(){
         printf("free the memory block and cuda stream!\n");
-        free_cuda_stream();
+        free_cuda_streams();
     }
 
     void BertClassifier::init_memory_block(){
@@ -109,6 +114,7 @@ namespace lazydog{
         for(uint32_t i=0;i<max_memory_block_size;++i){
             if(!memory_blocks[i].init_memory()){
                 printf("failed to initialize memory block at %d\n",i);
+                return;
             }
         }
         memory_block_init_flag = true;
@@ -146,7 +152,7 @@ namespace lazydog{
             if(cudaStreamCreate(streams[i])!=cudaError::cudaSuccess){
                 printf("failed to create cuda stream at %d\n",i);
                 if (i>0){
-                    free_cuda_stream(0,i-1);
+                    free_cuda_streams(0,i-1);
                 }
                 return;
             }
@@ -154,7 +160,7 @@ namespace lazydog{
         trt_init_flag = true;
     }
 
-    void BertClassifier::free_cuda_stream(uint32_t beg,uint32_t end){
+    void BertClassifier::free_cuda_streams(uint32_t beg,uint32_t end){
         if (beg > end){
             printf("beg -> %d greater than end -> %d \n",beg,end);
             return;
@@ -177,8 +183,8 @@ namespace lazydog{
         }
     }
 
-    void  BertClassifier::free_cuda_stream(){
-        free_cuda_stream(0,streams.size());
+    void  BertClassifier::free_cuda_streams(){
+        free_cuda_streams(0,streams.size());
     }
 
     const std::vector<prob_type>& BertClassifier::predict(std::wstring text,uint32_t indices){
@@ -195,11 +201,29 @@ namespace lazydog{
         // copy data
         cudaMemcpy(memory_block.device_buffers[input_ids_indices],memory_block.host_buffers[input_ids_indices],input_ids_bytes,cudaMemcpyKind::cudaMemcpyHostToDevice);
         cudaMemcpy(memory_block.device_buffers[attention_mask_indices],memory_block.host_buffers[attention_mask_indices],attention_mask_bytes,cudaMemcpyKind::cudaMemcpyHostToDevice);
+        
+        // do inference!
         contexts[context_indices]->executeV2(memory_block.device_buffers.data());
 
         //copy result
         cudaMemcpy(memory_block.host_buffers[probs_indices],memory_block.device_buffers[probs_indices],probs_bytes,cudaMemcpyKind::cudaMemcpyDeviceToHost);
         
         return memory_block.probs;
+    }
+
+    void BertClassifier::explicitly_free_memory_blocks(uint32_t beg,uint32_t end){
+        if(beg > end){
+            printf("beg -> %d greater than end -> %d\n",beg,end);
+            return;
+        }
+        auto block_size = memory_blocks.size();
+        if(beg < 0 || end >=block_size){
+            printf("out of range\n");
+            return;
+        }
+
+        for(uint32_t i=beg;i<end;++i){
+            memory_blocks[i].free_cuda_memory();
+        }
     }
 }
