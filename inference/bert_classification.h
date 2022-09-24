@@ -147,9 +147,10 @@ namespace lazydog {
 
             void init_trt();
             
-            void predict_with_check(std::wstring text);
+            // void predict_with_check(std::wstring text);
             
-            const std::vector<prob_type>& predict(std::wstring text,uint32_t indices);
+            std::vector<prob_type>& predict(std::wstring& text,uint32_t indices);
+            void predict(std::wstring& text,uint32_t indices,std::vector<prob_type>& prob_result);
 
             void free_cuda_streams(uint32_t beg,uint32_t end);
 

@@ -4,8 +4,13 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "/home/lazydog/Seattle/tensorrt/include",
-                "/home/lazydog/Seattle/cuda/include"
+                // this is for my opensusue
+                // "/home/lazydog/Seattle/tensorrt/include",
+                // "/home/lazydog/Seattle/cuda/include",
+                // this is for my ubuntu
+                "/home/lazydog/cpp_build/TensorRT-8.2.1.8/include",
+                "/home/lazydog/cpp_build/cuda/include",
+                "/home/lazydog/cpp_build/workflow/include" // c++ high performent framework!
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",

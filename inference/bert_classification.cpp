@@ -15,6 +15,7 @@ namespace lazydog{
         for(size_t i=0;i<device_buffers.size();++i){
             if(device_buffers[i]!=nullptr){
                 cudaFree(device_buffers[i]);
+                device_buffers[i] = nullptr;
             }
         }
     }
@@ -176,6 +177,7 @@ namespace lazydog{
             if(streams[i] != nullptr){
                 if (cudaStreamDestroy(*streams[i]) == cudaError::cudaSuccess){
                     printf("successfully destory stream at %d...\n",i);
+                    streams[i] = nullptr;
                 }else{
                     printf("failed to destroy the stream at %d...\n",i);
                 }
@@ -187,7 +189,7 @@ namespace lazydog{
         free_cuda_streams(0,streams.size());
     }
 
-    const std::vector<prob_type>& BertClassifier::predict(std::wstring text,uint32_t indices){
+    std::vector<prob_type>& BertClassifier::predict(std::wstring& text,uint32_t indices){
         uint32_t memory_indices = max_memory_block_size % indices;
         uint32_t stream_indices = max_cuda_stream_size % indices;
         uint32_t context_indices = max_context_size % indices;
@@ -204,11 +206,32 @@ namespace lazydog{
         
         // do inference!
         contexts[context_indices]->executeV2(memory_block.device_buffers.data());
-
+    
         //copy result
         cudaMemcpy(memory_block.host_buffers[probs_indices],memory_block.device_buffers[probs_indices],probs_bytes,cudaMemcpyKind::cudaMemcpyDeviceToHost);
-        
         return memory_block.probs;
+    }
+
+    void BertClassifier::predict(std::wstring& text,uint32_t indices,std::vector<prob_type>& prob_result){
+        uint32_t memory_indices = max_memory_block_size % indices;
+        uint32_t stream_indices = max_cuda_stream_size % indices;
+        uint32_t context_indices = max_context_size % indices;
+        auto &memory_block = memory_blocks[memory_indices];
+        std::vector<input_id_type> &input_ids = memory_block.input_ids;
+        std::vector<attention_mask_type> &attention_mask = memory_block.attention_mask;
+        std::vector<prob_type> &probs = memory_block.probs;
+        auto text_tokens = tokenizer->tokenize(text);
+        tokenizer->produce_input_ids_and_attention_mask(text_tokens, input_ids, attention_mask);
+
+        // copy data
+        cudaMemcpy(memory_block.device_buffers[input_ids_indices], memory_block.host_buffers[input_ids_indices], input_ids_bytes, cudaMemcpyKind::cudaMemcpyHostToDevice);
+        cudaMemcpy(memory_block.device_buffers[attention_mask_indices], memory_block.host_buffers[attention_mask_indices], attention_mask_bytes, cudaMemcpyKind::cudaMemcpyHostToDevice);
+
+        // do inference!
+        contexts[context_indices]->executeV2(memory_block.device_buffers.data());
+
+        // copy result
+        cudaMemcpy(prob_result.data(),memory_block.device_buffers[probs_indices], probs_bytes, cudaMemcpyKind::cudaMemcpyDeviceToHost);
     }
 
     void BertClassifier::explicitly_free_memory_blocks(uint32_t beg,uint32_t end){
