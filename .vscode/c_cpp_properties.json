@@ -10,6 +10,7 @@
                 // this is for my ubuntu
                 "/home/lazydog/cpp_build/TensorRT-8.2.1.8/include",
                 "/home/lazydog/cpp_build/cuda/include",
+                "/home/lazydog/cpp_build/rapidjson/include",
                 "/home/lazydog/cpp_build/workflow/include" // c++ high performent framework!
             ],
             "defines": [],

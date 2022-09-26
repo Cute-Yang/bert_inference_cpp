@@ -189,7 +189,7 @@ namespace lazydog{
         free_cuda_streams(0,streams.size());
     }
 
-    std::vector<prob_type>& BertClassifier::predict(std::wstring& text,uint32_t indices){
+    const prob_type* BertClassifier::predict(std::string& text,uint32_t indices){
         uint32_t memory_indices = max_memory_block_size % indices;
         uint32_t stream_indices = max_cuda_stream_size % indices;
         uint32_t context_indices = max_context_size % indices;
@@ -197,7 +197,8 @@ namespace lazydog{
         std::vector<input_id_type>& input_ids = memory_block.input_ids;
         std::vector<attention_mask_type>& attention_mask = memory_block.attention_mask;
         std::vector<prob_type>& probs = memory_block.probs;
-        auto text_tokens = tokenizer->tokenize(text);
+        std::wstring text_unicode = tokenizer->utf8_converter.from_bytes(text);
+        auto text_tokens = tokenizer->tokenize(text_unicode);
         tokenizer->produce_input_ids_and_attention_mask(text_tokens,input_ids,attention_mask);
         
         // copy data
@@ -209,10 +210,10 @@ namespace lazydog{
     
         //copy result
         cudaMemcpy(memory_block.host_buffers[probs_indices],memory_block.device_buffers[probs_indices],probs_bytes,cudaMemcpyKind::cudaMemcpyDeviceToHost);
-        return memory_block.probs;
+        return memory_block.probs.data();
     }
 
-    void BertClassifier::predict(std::wstring& text,uint32_t indices,std::vector<prob_type>& prob_result){
+    void BertClassifier::predict(std::string& text,uint32_t indices,std::vector<prob_type>& prob_result){
         uint32_t memory_indices = max_memory_block_size % indices;
         uint32_t stream_indices = max_cuda_stream_size % indices;
         uint32_t context_indices = max_context_size % indices;
@@ -220,7 +221,8 @@ namespace lazydog{
         std::vector<input_id_type> &input_ids = memory_block.input_ids;
         std::vector<attention_mask_type> &attention_mask = memory_block.attention_mask;
         std::vector<prob_type> &probs = memory_block.probs;
-        auto text_tokens = tokenizer->tokenize(text);
+        std::wstring text_unicode = tokenizer->utf8_converter.from_bytes(text);
+        auto text_tokens = tokenizer->tokenize(text_unicode);
         tokenizer->produce_input_ids_and_attention_mask(text_tokens, input_ids, attention_mask);
 
         // copy data

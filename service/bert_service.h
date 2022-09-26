@@ -9,18 +9,20 @@
 #include <pthread.h>
 #include "inference/bert_classification.h"
 #include <memory>
+#include "rapidjson/stringbuffer.h"
+#include "rapidjson/writer.h"
+#include "rapidjson/document.h"
 
 namespace lazydog { 
     struct series_context {
         // the req id
-        std::string task_id;
-        protocol::HttpResponse* response;
-        std::vector<prob_type>* prob_result;
+        bool _is_req_valid = true;
+        protocol::HttpResponse* response=nullptr;
+        const prob_type* predict_result;
     };
     
     struct cls_request{
-        std::wstring text;
-        std::string task_id;
+        std::string text;
         bool is_valid = true;
     };
 
@@ -32,6 +34,8 @@ namespace lazydog {
             // for compute task!
             uint32_t compute_thread_nums = 0;
             uint32_t handler_thread_nums = 50;
+
+            float prob_thresh = 0.5;
 
         private:
             std::unordered_map<pthread_t,uint32_t> thread_indices_map;
@@ -89,6 +93,9 @@ namespace lazydog {
             
             void init_server();
 
+            std::string _wrap_response_json_data(const prob_type* prob_result);
+
+            cls_request parse_request_json(const char* request_body);
     };
 }
 

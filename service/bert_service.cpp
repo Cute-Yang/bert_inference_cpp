@@ -48,6 +48,7 @@ namespace lazydog {
 
         WORKFLOW_library_init(&settings);
         
+        printf("create a model server ptr...\n");
         model_server = std::make_unique<WFHttpServer>(server_process);
     }
 
@@ -58,7 +59,7 @@ namespace lazydog {
             task->get_resp()->append_output_body("<html>Welcome to lazydog text cls server</html>");
             return;
         }
-        else if (strcmp(task_uri,"hello_word") == 0){
+        else if (strcmp(task_uri,"/hello_word") == 0){
             task->get_resp()->append_output_body("<html>Hello World!</html>");
             return;
         }
@@ -71,14 +72,92 @@ namespace lazydog {
             ctx->response = resp;
             WFGoTask* predict_task = nullptr;
             if(model_inference_timeout == 0){
+                // create async task
                 predict_task = WFTaskFactory::create_go_task(serve_url,do_work,cls_task_req,ctx);
             }else {
-                predict_task = WFTaskFactory::create_timedgo_task(0,model_inference_timeout*1e6,serve_url,cls_task_req,ctx);
+                // create async task with specify timeout!
+                predict_task = WFTaskFactory::create_timedgo_task(0,model_inference_timeout*1e6,serve_url,do_work,cls_task_req,ctx);
+                // _warp a class membert function -> std::function!
+                predict_task->set_callback(std::bind(&BertClassificationServer::server_process_callback,this,std::placeholders::_1));
             }
-            auto&& callback = std::bind(&server_process_callback,this,task);
-            predict_task->set_callback(callback);
+            series_of(task) -> push_back(predict_task);
+        }// means that get invalid uri
+        else{
+            task->get_resp()->append_output_body("<html>Invalid uri!</html>");
         }
     }
     
+    std::string BertClassificationServer::_wrap_response_json_data(const prob_type* prob_result){
+        uint32_t num_classes = model_classifier->get_num_classes();
+        uint32_t batch_size = model_classifier->get_batch_size();
+        rapidjson::StringBuffer buf;
+        rapidjson::Writer<rapidjson::StringBuffer> writer(buf);
+        writer.StartObject();
+        writer.Key("status");
+        writer.Int(0);
+        writer.Key("probs");
+        writer.StartObject();
+        for(uint32_t i=0;i<batch_size;++i){
+            writer.Key(("prob_" + std::to_string(i)).c_str());
+            writer.StartArray();
+            for(uint32_t j=0;j<num_classes;++j){
+                writer.Double(static_cast<double>(*(prob_result + i * num_classes + j)));
+            }
+            writer.EndArray();
+        }
+        writer.EndObject();
+        writer.Key("error_detail");
+        writer.String("");
+        writer.EndObject();
+        return buf.GetString();
+    }
+
+    void BertClassificationServer::server_process_callback(WFGoTask* predict_task){
+        auto* context = (series_context*)series_of(predict_task) -> get_context();
+        auto state = predict_task->get_state();
+        // means model run failed or the request data is invalid!
+        if(state == WFT_STATE_ABORTED){
+            context->response->append_output_body("{\"status\":-1,probs:[],\"error_detail\":\"model_inference_error\"}");
+            return;
+        }
+
+        if (!context->_is_req_valid){
+            context->response->append_output_body("{\"status\":-2,probs:[],\"error_detail\":\"invalid_request\"}");
+            return;
+        }
+
+        std::string response_body = _wrap_response_json_data(context->predict_result);
+        // to avoid one copy!
+        context->response->append_output_body(std::move(response_body));
+    }
+
+    cls_request BertClassificationServer::parse_request_json(const char* request_body){
+        rapidjson::Document doc;
+        doc.Parse(request_body);
+        cls_request req{};
+        if(doc.HasParseError() || doc.IsNull() || doc.ObjectEmpty() || !doc.IsObject()){
+            req.text = "";
+            req.is_valid = false;
+        }else{
+            if(!doc.HasMember("text") || !doc["text"].IsString()){
+                req.text = "";
+                req.is_valid = false;
+            }else{
+                req.text = doc["text"].GetString();
+                // req.is_valid = true;
+            }
+        }
+        return req;
+    }
     
+
+    void BertClassificationServer::do_work(cls_request* req,series_context* ctx){
+        if(!req->is_valid){
+            ctx->_is_req_valid = false;
+            return;
+        }
+        uint32_t thread_indices = _get_current_thread_indices();
+        const prob_type* data_ptr = model_classifier->predict(req->text,thread_indices);
+        ctx->predict_result = data_ptr;
+    }
 }
