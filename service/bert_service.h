@@ -3,6 +3,8 @@
 
 #include "workflow/WFTask.h"
 #include "workflow/WFHttpServer.h"
+#include "workflow/HttpUtil.h"
+#include "workflow/Workflow.h"
 #include <unordered_map>
 #include <atomic>
 #include "cuda_runtime_api.h"
