@@ -18,17 +18,17 @@ BertClassificationServer::BertClassificationServer(std::string serve_url_, uint3
     max_connection_nums(max_connection_nums_), peer_response_timeout(per_response_timeout_) {
 }
 
-inline void BertClassificationServer::set_gpu(int gpu_id) {
-    if (gpu_id < 0) {
-        printf("set gpu unvisible\n");
-        return;
-    }
-    if (cudaSetDevice(gpu_id) == cudaError_t::cudaSuccess) {
-        printf("set gpu -> %d\n", gpu_id);
-        return;
-    }
-    printf("failed to set gpu...\n");
-}
+// inline void BertClassificationServer::set_gpu(int gpu_id) {
+//     if (gpu_id < 0) {
+//         printf("set gpu unvisible\n");
+//         return;
+//     }
+//     if (cudaSetDevice(gpu_id) == cudaError_t::cudaSuccess) {
+//         printf("set gpu -> %d\n", gpu_id);
+//         return;
+//     }
+//     printf("failed to set gpu...\n");
+// }
 
 void BertClassificationServer::_add_thread_2_map(pthread_t thread_id) {
     printf("insert pair -> [thread_id]:%ld  [indices]:%d\n", thread_id, awake_thread_indices);
@@ -78,12 +78,13 @@ void BertClassificationServer::server_process(WFHttpTask *task) {
         task->set_callback(task_callback);
 
         WFGoTask *predict_task = nullptr;
+        auto&& go_proc = std::bind(&BertClassificationServer::do_work,this,std::placehoders::_1,std::placeholders::_2);
         if (model_inference_timeout == 0) {
             // create async task
-            predict_task = WFTaskFactory::create_go_task(serve_url, do_work, cls_task_req, ctx);
+            predict_task = WFTaskFactory::create_go_task(serve_url,go_proc, cls_task_req, ctx);
         } else {
             // create async task with specify timeout!
-            predict_task = WFTaskFactory::create_timedgo_task(0, model_inference_timeout * 1e6, serve_url, do_work, cls_task_req, ctx);
+            predict_task = WFTaskFactory::create_timedgo_task(0, model_inference_timeout * 1e6, serve_url,go_proc, cls_task_req, ctx);
         }
         // _warp a class membert function -> std::function!
         predict_task->set_callback(std::bind(&BertClassificationServer::server_process_callback, this, std::placeholders::_1));

@@ -7,9 +7,8 @@
 #include "workflow/Workflow.h"
 #include <unordered_map>
 #include <atomic>
-#include "cuda_runtime_api.h"
 #include <pthread.h>
-#include "inference/bert_classification.h"
+#include "bert_classification.h"
 #include <memory>
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
@@ -61,6 +60,10 @@ namespace lazydog {
                 model_inference_timeout = timeout;
             }
 
+            inline void set_model(BertClassifier* model){
+                model_classifier = model;
+            }
+
             inline uint32_t get_machine_cpu_cores();
             
             inline void set_gpu(int gpu_id);
@@ -69,18 +72,22 @@ namespace lazydog {
 
             uint32_t _get_current_thread_indices();
 
-            inline void start(uint16_t port){
+            inline int start(uint16_t port){
                 printf("server start at localhost:%d\n",port);
                 model_server->start(port);
             }
 
-            inline void start(const char* host,uint16_t port){
+            inline int start(const char* host,uint16_t port){
                 printf("server start at %s:%d\n",host,port);
                 model_server->start(host,port);
             } 
 
             inline void shutdown() {
                 model_server->shutdown();
+            }
+
+            inline void stop(){
+                model_server->stop();
             }
 
             inline void wait_finish(){

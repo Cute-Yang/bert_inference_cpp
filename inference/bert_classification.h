@@ -6,7 +6,7 @@
 #include<fstream>
 #include <vector>
 #include <cstdio>
-#include "data_common/bert_tokenizer.h"
+#include "bert_tokenizer.h"
 #include <unordered_map>
 #include <pthread.h>
 
@@ -68,6 +68,9 @@ namespace lazydog {
             std::vector<prob_type> probs;
 
         public:
+            // disabled for empty constructor!
+            MemoryBlock() = delete;
+
             MemoryBlock(uint32_t num_classes_,uint32_t max_seq_size_);
 
             MemoryBlock(uint32_t num_classes_,uint32_t max_seq_size_,uint32_t batch_size_);
@@ -111,7 +114,8 @@ namespace lazydog {
 
             bool memory_block_init_flag = false;
 
-            std::unordered_map<pthread_t,size_t> thread_lookup_table;
+            // do not need this
+            // std::unordered_map<pthread_t,size_t> thread_lookup_table;
         
         public:
             BertClassifier(std::string plan_file_);

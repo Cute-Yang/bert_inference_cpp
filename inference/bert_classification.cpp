@@ -6,6 +6,9 @@ namespace lazydog{
     MemoryBlock::MemoryBlock(uint32_t num_classes_,uint32_t max_seq_size_):
         num_classes(num_classes_),max_seq_size(max_seq_size_){};
     
+    MemoryBlock::MemoryBlock(uint32_t num_classes_,uint32_t max_seq_size_,uint32_t batch_size_):
+        num_classes(num_classes_),max_seq_size(max_seq_size_),batch_size(batch_size_);
+    
     MemoryBlock::~MemoryBlock(){
         free_cuda_memory();
     }
