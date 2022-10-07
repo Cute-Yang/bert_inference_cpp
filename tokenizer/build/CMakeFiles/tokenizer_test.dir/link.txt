@@ -1,1 +1,0 @@
-/usr/bin/c++ CMakeFiles/tokenizer_test.dir/bert_tokenizer_test.cpp.o -o tokenizer_test  -Wl,-rpath,/home/lazydog/lazydog-tutorial/bert_inference_cpp/tokenizer/build libbert_tokenizer.so 

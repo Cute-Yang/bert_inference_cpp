@@ -495,10 +495,11 @@ namespace lazydog {
         }
         std::string temp_line;
         uint32_t i = 0;
+        std::cout << "the sizeof token_2_id is " << token_2_id.size() << std::endl;
         while(std::getline(reader,temp_line)){
             std::wstring utf8_token = utf8_converter.from_bytes(temp_line);
-            token_2_id[utf8_token] = i;
-            id_2_token[i] = std::move(utf8_token);
+            id_2_token.insert({i,utf8_token});
+            token_2_id.insert({utf8_token,i});
             ++i;
         }
         printf("read %d tokens from vocab file\n",i);

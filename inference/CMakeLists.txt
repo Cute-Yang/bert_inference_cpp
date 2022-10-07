@@ -1,50 +1,50 @@
+set(target_name "bert_inference")
 add_library(
-    bert_classification STATIC
-    bert_classification.h
+    ${target_name} STATIC
     bert_classification.cpp
+    bert_classification.h
 )
-# here to set the prefix path of tensorrt!
-set(trt_dir /home/layzdog/Seattle/tensorrt)
 
-if(${CMAKE_PREFIX_PATH})
-    set(CMAKE_PREFIX_PATH} ${trt_dir})
-else()
-    set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH};${trt_dir})
-endif()
+# set the cuda home
+set(CUDA_TOOLKIT_ROOT_DIR "/dockerdata/sunyyao/lazydog_build/cuda-11.0")
+
+# set the tensorrt dir
+set(tensorrt_home "/dockerdata/sunyyao/SDK/TensorRT-8.2.1.8")
+message(STATUS "tensorrt -> ${tensorrt_home}")
+
 find_library(
     nvinfer_lib
-    name nvinfer
+    nvinfer
+    ${tensorrt_home}/lib
 )
 
-if(${nvinfer_lib} STREQUAL "nvinfer_lib-NOTFOUND")
-    message(FATAL_ERROR "can not find nvinfer lib!")
-else()
-    message(STATUS "find nvinfer at -> ${nvinfer_lib}")
-endif()
-    
+message(STATUS "nvinfer -> ${nvinfer_lib}")
+
 
 find_package(CUDA REQUIRED)
 if(CUDA_FOUND)
-    target_include_directories(
-        bert_classification
-        PRIVATE ${CUDA_INCLUDE_DIRS}
-    )
-    message(STATUS "cuda_include_dir -> ${CUDA_INCLUDE_DIRS},cudart -> ${CUDA_CUDART_LIBRARY}!")
-else()
-    message(FATAL_ERROR "can not find cuda...")
-endif()
+    message(STATUS "Find CUDA,the include dir is ${CUDA_INCLUDE_DIRS},cudart -> ${CUDA_CUDART_LIBRARY}")
+else(CUDA_FOUND)
+    message(FATAL_ERROR "not found cuda...")
+endif(CUDA_FOUND)
+
 
 target_include_directories(
-    bert_classificaiton
+    ${target_name}
+    PUBLIC ${tensorrt_home}/include
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
+    PUBLIC ${CUDA_INCLUDE_DIRS}
+)
+
+target_link_directories(
+    ${target_name}
+    PRIVATE ${tensorrt_home}/lib
 )
 
 target_link_libraries(
-    bert_classification
+    ${target_name}
     PRIVATE ${CUDA_CUDART_LIBRARY}
+    PRIVATE ${nvinfer_lib}
+    PUBLIC bert_tokenizer
 )
 
-target_link_libraries(
-    bert_classification
-    PUBLIC tokenizer
-)

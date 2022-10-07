@@ -1,4 +1,4 @@
-#include "service/bert_service.h"
+#include "bert_service.h"
 
 namespace lazydog {
 BertClassificationServer::BertClassificationServer(std::string serve_url_) :
@@ -31,8 +31,10 @@ BertClassificationServer::BertClassificationServer(std::string serve_url_, uint3
 // }
 
 void BertClassificationServer::_add_thread_2_map(pthread_t thread_id) {
+    std::unique_lock<std::mutex> guard(thread_looukp_indices_mt);
     printf("insert pair -> [thread_id]:%ld  [indices]:%d\n", thread_id, awake_thread_indices);
-    thread_indices_map[thread_id] = awake_thread_indices++;
+    thread_indices_map[thread_id] = awake_thread_indices;
+    ++awake_thread_indices;
 }
 
 uint32_t BertClassificationServer::_get_current_thread_indices() {
@@ -44,21 +46,22 @@ uint32_t BertClassificationServer::_get_current_thread_indices() {
 }
 
 void BertClassificationServer::init_server() {
-    WFGlobalSettings settings = GLOBAL_SETTINGS_DEFAULT;
+    struct WFGlobalSettings settings = GLOBAL_SETTINGS_DEFAULT;
     settings.compute_threads = compute_thread_nums;
     settings.handler_threads = handler_thread_nums;
     settings.endpoint_params.max_connections = max_connection_nums;
-    settings.endpoint_params.response_timeout = peer_response_timeout;
+    settings.endpoint_params.response_timeout = peer_response_timeout; 
 
     WORKFLOW_library_init(&settings);
-
+    auto &&proc = std::bind(&BertClassificationServer::server_process, this, std::placeholders::_1);
+    model_server = std::make_unique<WFHttpServer>(proc);
     printf("create a model server ptr...\n");
-    model_server = std::make_unique<WFHttpServer>(server_process);
 }
 
 void BertClassificationServer::server_process(WFHttpTask *task) {
     const char *task_uri = task->get_req()->get_request_uri();
     if (strcmp(task_uri, "/welcome") == 0) {
+        printf("task_uri -> %s\n", task_uri);
         task->get_resp()->append_output_body("<html>Welcome to lazydog text cls server</html>");
         return;
     } else if (strcmp(task_uri, "/hello_word") == 0) {
@@ -73,21 +76,22 @@ void BertClassificationServer::server_process(WFHttpTask *task) {
         ctx->response = resp;
         series->set_context(ctx);
         auto task_callback = [](WFHttpTask *task) {
-            delete (series_of)(task)->get_context();
+            delete (series_context *)(series_of)(task)->get_context();
         };
         task->set_callback(task_callback);
 
         WFGoTask *predict_task = nullptr;
-        auto&& go_proc = std::bind(&BertClassificationServer::do_work,this,std::placehoders::_1,std::placeholders::_2);
+        auto &&go_proc = std::bind(&BertClassificationServer::do_work, this, std::placeholders::_1, std::placeholders::_2);
         if (model_inference_timeout == 0) {
             // create async task
-            predict_task = WFTaskFactory::create_go_task(serve_url,go_proc, cls_task_req, ctx);
+            predict_task = WFTaskFactory::create_go_task(serve_url, go_proc, cls_task_req, ctx);
         } else {
             // create async task with specify timeout!
-            predict_task = WFTaskFactory::create_timedgo_task(0, model_inference_timeout * 1e6, serve_url,go_proc, cls_task_req, ctx);
+            predict_task = WFTaskFactory::create_timedgo_task(0, model_inference_timeout * 1e6, serve_url, go_proc, cls_task_req, ctx);
         }
         // _warp a class membert function -> std::function!
-        predict_task->set_callback(std::bind(&BertClassificationServer::server_process_callback, this, std::placeholders::_1));
+        auto &&predict_callback = std::bind(&BertClassificationServer::server_process_callback, this, std::placeholders::_1);
+        predict_task->set_callback(predict_callback);
         series->push_back(predict_task);
 
     } // means that get invalid uri
@@ -105,16 +109,13 @@ std::string BertClassificationServer::_wrap_response_json_data(const prob_type *
     writer.Key("status");
     writer.Int(0);
     writer.Key("probs");
-    writer.StartObject();
+    writer.StartArray();
     for (uint32_t i = 0; i < batch_size; ++i) {
-        writer.Key(("prob_" + std::to_string(i)).c_str());
-        writer.StartArray();
         for (uint32_t j = 0; j < num_classes; ++j) {
             writer.Double(static_cast<double>(*(prob_result + i * num_classes + j)));
         }
-        writer.EndArray();
     }
-    writer.EndObject();
+    writer.EndArray();
     writer.Key("error_detail");
     writer.String("");
     writer.EndObject();
@@ -159,13 +160,13 @@ cls_request BertClassificationServer::parse_request_json(const char *request_bod
     return req;
 }
 
-void BertClassificationServer::do_work(cls_request *req, series_context *ctx) {
-    if (!req->is_valid) {
+void BertClassificationServer::do_work(cls_request &req, series_context *ctx) {
+    if (!req.is_valid) {
         ctx->_is_req_valid = false;
         return;
     }
     uint32_t thread_indices = _get_current_thread_indices();
-    const prob_type *data_ptr = model_classifier->predict(req->text, thread_indices);
+    const prob_type *data_ptr = model_classifier->predict(req.text, thread_indices);
     ctx->predict_result = data_ptr;
 }
 } // namespace lazydog

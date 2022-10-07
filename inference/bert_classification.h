@@ -1,5 +1,5 @@
-#ifndef __BERT_CLASSIFICATION__
-#define __BERT_CLASSIFICATION__
+#ifndef __BERT_CLASSIFICATION_H__
+#define __BERT_CLASSIFICATION_H__
 #include <NvInfer.h>
 #include <cuda_fp16.h>
 #include<cuda_runtime_api.h>
@@ -68,9 +68,6 @@ namespace lazydog {
             std::vector<prob_type> probs;
 
         public:
-            // disabled for empty constructor!
-            MemoryBlock() = delete;
-
             MemoryBlock(uint32_t num_classes_,uint32_t max_seq_size_);
 
             MemoryBlock(uint32_t num_classes_,uint32_t max_seq_size_,uint32_t batch_size_);
@@ -94,10 +91,10 @@ namespace lazydog {
             nvinfer1::IRuntime* trt_runtime = nullptr;
             nvinfer1::ICudaEngine* engine = nullptr;
             std::vector<nvinfer1::IExecutionContext*> contexts;
-            std::vector<cudaStream_t*> streams;
+            std::vector<cudaStream_t> streams;
             std::string plan_file;
-            uint32_t max_seq_size;
-            uint32_t num_classes;
+            uint32_t max_seq_size=32;
+            uint32_t num_classes=8;
             uint32_t batch_size = 1;
 
             //cache the copy byte!
@@ -114,7 +111,6 @@ namespace lazydog {
 
             bool memory_block_init_flag = false;
 
-            // do not need this
             // std::unordered_map<pthread_t,size_t> thread_lookup_table;
         
         public:

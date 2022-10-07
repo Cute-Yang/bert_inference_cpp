@@ -1,1 +1,0 @@
-/usr/bin/c++ -fPIC -shared -Wl,-soname,libbert_tokenizer.so -o libbert_tokenizer.so CMakeFiles/bert_tokenizer.dir/bert_tokenizer.cpp.o 

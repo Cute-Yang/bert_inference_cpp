@@ -1,4 +1,0 @@
-/home/lazydog/lazydog-tutorial/bert_inference_cpp/tokenizer/build/CMakeFiles/bert_tokenizer.dir
-/home/lazydog/lazydog-tutorial/bert_inference_cpp/tokenizer/build/CMakeFiles/tokenizer_test.dir
-/home/lazydog/lazydog-tutorial/bert_inference_cpp/tokenizer/build/CMakeFiles/edit_cache.dir
-/home/lazydog/lazydog-tutorial/bert_inference_cpp/tokenizer/build/CMakeFiles/rebuild_cache.dir

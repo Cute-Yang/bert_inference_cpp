@@ -1,14 +1,22 @@
-#include "inference/bert_classification.h"
+#include "bert_classification.h"
+#include <iostream>
 
 #define ck(call) check(call,__LINE__,__FILE__)
 
+template<typename dataType>
+void print_vector(std::vector<dataType>& data){
+    for(int i=0;i<data.size();++i){
+        std::cout << data[i] << " ";
+    }
+    std::cout << "\n";
+}
+
 namespace lazydog{
     MemoryBlock::MemoryBlock(uint32_t num_classes_,uint32_t max_seq_size_):
-        num_classes(num_classes_),max_seq_size(max_seq_size_){};
+        num_classes(num_classes_),max_seq_size(max_seq_size_){}
     
     MemoryBlock::MemoryBlock(uint32_t num_classes_,uint32_t max_seq_size_,uint32_t batch_size_):
-        num_classes(num_classes_),max_seq_size(max_seq_size_),batch_size(batch_size_);
-    
+        num_classes(num_classes_),max_seq_size(max_seq_size_),batch_size(batch_size_){}
     MemoryBlock::~MemoryBlock(){
         free_cuda_memory();
     }
@@ -26,6 +34,7 @@ namespace lazydog{
     bool MemoryBlock::init_memory() {
         if (init_flag){
             printf("already initialized,do not invoke this function!\n");
+            return true;
         }
         printf("init the host memory buffer!\n");
         input_ids.assign(max_seq_size,0);
@@ -33,7 +42,7 @@ namespace lazydog{
         probs.assign(num_classes,0.0f);
         host_buffers[input_ids_indices] = input_ids.data();
         host_buffers[attention_mask_indices] = attention_mask.data();
-        host_buffers[probs_indices] = attention_mask.data();
+        host_buffers[probs_indices] = probs.data();
         
         printf("init the device buffer!\n");
         // for input_ids
@@ -80,7 +89,7 @@ namespace lazydog{
     
     BertClassifier::BertClassifier(uint32_t max_cuda_stream_size_,uint32_t max_context_size_,
                                    uint32_t max_memory_block_size_,std::string plan_file_):
-        max_cuda_stream_size(max_cuda_stream_size),max_context_size(max_context_size_),
+        max_cuda_stream_size(max_cuda_stream_size_),max_context_size(max_context_size_),
         max_memory_block_size(max_memory_block_size_),plan_file(plan_file_){
             compute_data_bytes();
         }
@@ -153,7 +162,7 @@ namespace lazydog{
 
         streams.assign(max_cuda_stream_size,nullptr);
         for(uint32_t i=0;i<max_cuda_stream_size;++i){
-            if(cudaStreamCreate(streams[i])!=cudaError::cudaSuccess){
+            if(cudaStreamCreate(&streams[i])!=cudaError::cudaSuccess){
                 printf("failed to create cuda stream at %d\n",i);
                 if (i>0){
                     free_cuda_streams(0,i-1);
@@ -176,11 +185,11 @@ namespace lazydog{
             return;
         }
         // loop free
-        for(uint32_t i=beg;i<end;++i){
+        for(uint32_t i=beg;i<=end;++i){
             if(streams[i] != nullptr){
-                if (cudaStreamDestroy(*streams[i]) == cudaError::cudaSuccess){
+                if (cudaStreamDestroy(streams[i]) == cudaError::cudaSuccess){
                     printf("successfully destory stream at %d...\n",i);
-                    streams[i] = nullptr;
+                    // streams[i] = nullptr;
                 }else{
                     printf("failed to destroy the stream at %d...\n",i);
                 }
@@ -189,13 +198,13 @@ namespace lazydog{
     }
 
     void  BertClassifier::free_cuda_streams(){
-        free_cuda_streams(0,streams.size());
+        free_cuda_streams(0,streams.size()-1);
     }
 
     const prob_type* BertClassifier::predict(std::string& text,uint32_t indices){
-        uint32_t memory_indices = max_memory_block_size % indices;
-        uint32_t stream_indices = max_cuda_stream_size % indices;
-        uint32_t context_indices = max_context_size % indices;
+        uint32_t memory_indices = indices % max_memory_block_size;
+        uint32_t stream_indices = indices % max_cuda_stream_size;
+        uint32_t context_indices = indices % max_context_size;
         auto& memory_block = memory_blocks[memory_indices];
         std::vector<input_id_type>& input_ids = memory_block.input_ids;
         std::vector<attention_mask_type>& attention_mask = memory_block.attention_mask;
@@ -203,7 +212,6 @@ namespace lazydog{
         std::wstring text_unicode = tokenizer->utf8_converter.from_bytes(text);
         auto text_tokens = tokenizer->tokenize(text_unicode);
         tokenizer->produce_input_ids_and_attention_mask(text_tokens,input_ids,attention_mask);
-        
         // copy data
         cudaMemcpy(memory_block.device_buffers[input_ids_indices],memory_block.host_buffers[input_ids_indices],input_ids_bytes,cudaMemcpyKind::cudaMemcpyHostToDevice);
         cudaMemcpy(memory_block.device_buffers[attention_mask_indices],memory_block.host_buffers[attention_mask_indices],attention_mask_bytes,cudaMemcpyKind::cudaMemcpyHostToDevice);

@@ -14,11 +14,6 @@
 
 
 namespace lazydog {
-    using input_ids_type = std::vector<uint32_t>;
-    using attention_mask_type = std::vector<uint32_t>;
-    using token_type = std::wstring;
-    using tokens_type = std::vector<std::wstring>;
-
     class BertTokenizer {
         public:
             static std::set<wchar_t> chinese_punc_chars;
@@ -35,10 +30,10 @@ namespace lazydog {
             // the max size of chars for a english word,if greater than this,regard as not word
             uint32_t max_input_chars_per_word=28;
             // a map to restore the vocab,consider to use unordered_map
-            std::unordered_map<std::wstring, uint32_t> token_2_id{};
-            std::unordered_map<uint32_t,std::wstring> id_2_token{};
-            std::unordered_map<std::wstring,uint32_t> added_token_2_id{};
-            std::unordered_map<uint32_t,std::wstring> added_id_2_token{};
+            std::unordered_map<std::wstring, uint32_t> token_2_id;
+            std::unordered_map<uint32_t,std::wstring> id_2_token;
+            std::unordered_map<std::wstring,uint32_t> added_token_2_id;
+            std::unordered_map<uint32_t,std::wstring> added_id_2_token;
             std::wregex pattern;
             uint32_t max_seq_size = 32;
             uint32_t _last_size = 32 -1;
