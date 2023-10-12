@@ -126,7 +126,7 @@ void BertClassificationServer::server_process_callback(WFGoTask *predict_task) {
     auto *context = (series_context *)series_of(predict_task)->get_context();
     auto state = predict_task->get_state();
     // means model run failed or the request data is invalid!
-    if (state == WFT_STATE_ABORTED) {
+    if (state != WFT_STATE_SUCCESS) {
         context->response->append_output_body("{\"status\":-1,probs:[],\"error_detail\":\"model_inference_error\"}");
         return;
     }
